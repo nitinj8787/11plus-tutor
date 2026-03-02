@@ -108,3 +108,30 @@ cd web && npm run lint
 - `PLAN.md` - Comprehensive project plan and research
 - `settings.py` - Pydantic settings for configuration
 - `config/exams.yaml` - Exam specifications and question types
+
+## 🐛 PRIORITY FIXES (from user testing, March 2026)
+
+These bugs were reported by Jon after real-world testing. Fix all 4:
+
+### 1. Repetitive questions in practice tests
+**Problem**: The same question appears multiple times within a single practice test.
+**Fix**: Track question IDs/hashes within a test session. Before presenting a question, check it hasn't already been shown. Use a Set of question hashes (question text + options) to deduplicate.
+**Files**: `src/agents/practice_agent.py` — `generate_question()` needs a session-level dedup mechanism.
+
+### 2. Code word tests are too easy
+**Problem**: Code word questions have answers that are too obvious because each coded word starts with different letters. Need more distractors that share the same first 1-2 coded letters.
+**Fix**: In `_build_vr_prompt()` for `code_words` type, update the generation prompt to explicitly require:
+- Multiple answer options must share the same first 1-2 coded letters
+- Distractors should be plausible (only differ by 1-2 letters from correct answer)
+- Add instruction: "Make sure at least 2-3 options start with the same coded letters to increase difficulty"
+**Files**: `src/agents/practice_agent.py` — `_build_vr_prompt()`, the `code_words` example/instruction section.
+
+### 3. Letter line shown for wrong question types
+**Problem**: The alphabet/letter line helper is displayed for question types that don't need it (should only show for code words, letter sequences, etc.)
+**Fix**: Only render the letter line component when `question_type` is in a whitelist: `['code_words', 'letter_codes', 'letter_sequences', 'code_breakers']`. Check both the backend response and frontend rendering.
+**Files**: Frontend — check `web/app/practice/page.tsx` and related components for letter line rendering logic.
+
+### 4. Questions repeating across sessions
+**Problem**: Same questions keep coming back across different practice sessions.
+**Fix**: Store a history of recently-seen question hashes (last 200-500) in the student progress/session state. Exclude these when generating or selecting new questions. If the question bank is small for a type, allow repeats only after all questions have been seen.
+**Files**: `src/progress/` for tracking, `src/agents/practice_agent.py` for filtering.
